@@ -76,7 +76,7 @@ void print_cache_entries() {
             printf("Valid: %d Tag: %#x Time: %d Data: ", pEntry->valid, pEntry->tag, pEntry->timestamp);
             // for each block in a entry
             for (k=0; k<DEFAULT_CACHE_BLOCK_SIZE_BYTE; k++) {
-                printf("%#x(%d) ", pEntry->data[k], k);
+                printf("(%d)%#x ", k, pEntry->data[k]);
             }
             printf("\t");
         }
