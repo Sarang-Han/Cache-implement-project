@@ -69,7 +69,7 @@ void print_cache_entries() {
         printf("[Set %d] ", i);
         for (j=0; j <DEFAULT_CACHE_ASSOC; j++) {
             cache_entry_t *pEntry = &cache_array[i][j];
-            printf("V: %d Tag: %#x Time: %d Data: ", pEntry->valid, pEntry->tag, pEntry->timestamp);
+            printf("Valid: %d Tag: %#x Time: %d Data: ", pEntry->valid, pEntry->tag, pEntry->timestamp);
             for (k=0; k<DEFAULT_CACHE_BLOCK_SIZE_BYTE; k++) {
                 printf("%#x(%d) ", pEntry->data[k], k);
             }
