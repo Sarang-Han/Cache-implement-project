@@ -1,0 +1,8 @@
+3 b 0x1
+68 h 0xffffffcb
+4 h 0xffffffdc
+48 w 0xffde3221
+69 b 0xffffffed
+----------------------------------------------
+Hit ratio = 0.00 (0/0)
+Bandwidth = nan (5/505)

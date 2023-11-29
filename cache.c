@@ -84,47 +84,83 @@ void print_cache_entries() {
     }
 }
 
-/* This function is to return the data in cache */
 int check_cache_data_hit(void *addr, char type) {
+    /* 주어진 주소와 타입을 기반으로 캐시에 데이터가 있는지 확인하고, 없으면 메모리에서 가져와야 해요. */
+    num_access_cycles += CACHE_ACCESS_CYCLE; // 캐시 액세스 사이클 추가
 
-    /* add this cache access cycle to global access cycle */
-   /* check all entries in a set */
-   /* if there is no data in cache, data is missed and return -1*/
-   // return -1 for missing
+    int set_index = ((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE;
+    int tag = ((int)addr / DEFAULT_CACHE_SIZE_BYTE);
 
-    return -1;    
+    for (int i = 0; i < DEFAULT_CACHE_ASSOC; i++) {
+        cache_entry_t *entry = &cache_array[set_index][i];
+        if (entry->valid && entry->tag == tag) {
+            num_cache_hits++; // 캐시 히트
+            entry->timestamp = global_timestamp++; // 타임스탬프 업데이트
+            return 1; // 데이터를 찾았으므로 리턴
+        }
+    }
+    // 데이터가 캐시에 없음 (캐시 미스)
+    num_cache_misses++;
+    return -1;
 }
 
-/* This function is to find the entry index in set for copying to cache */
 int find_entry_index_in_set(int cache_index) {
-    int entry_index;
+    /* 캐시 세트 내에서 새 데이터를 저장할 인덱스를 찾아야 해요. */
+    int set_index = cache_index % CACHE_SET_SIZE;
+    int empty_entry_index = -1;
+    int lru_index = 0;
+    int lru_timestamp = cache_array[set_index][0].timestamp;
 
-    /* Check if there exists any empty cache space by checking 'valid' */
+    for (int i = 0; i < DEFAULT_CACHE_ASSOC; i++) {
+        cache_entry_t *entry = &cache_array[set_index][i];
+        if (!entry->valid) {
+            empty_entry_index = i; // 비어있는 엔트리가 있으면 해당 인덱스 저장
+            break;
+        }
+        // LRU(Least Recently Used) 찾기
+        if (entry->timestamp < lru_timestamp) {
+            lru_index = i;
+            lru_timestamp = entry->timestamp;
+        }
+    }
 
-   /* If the set has only 1 entry, return index 0 */
-
-   /* Otherwise, search over all entries
-      to find the least recently used entry by checking 'timestamp' */
-
-   /* return the cache index for copying from memory */
-
-    return entry_index; 
+    if (empty_entry_index != -1) {
+        return empty_entry_index; // 비어있는 엔트리가 있으면 반환
+    } else {
+        return lru_index; // 아니면 LRU 인덱스 반환
+    }
 }
 
-/* This function is to return the data in main memory */
 int access_memory(void *addr, char type) {
+    /* 메모리에서 데이터를 읽어와서 캐시에 저장해야 해요. */
+    int set_index = ((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE;
+    int entry_index = find_entry_index_in_set(set_index);
+
+    num_access_cycles += MEMORY_ACCESS_CYCLE; // 메모리 액세스 사이클 추가
+
+    cache_entry_t *entry = &cache_array[set_index][entry_index];
+    int tag = ((int)addr / DEFAULT_CACHE_SIZE_BYTE);
+    entry->valid = 1;
+    entry->tag = tag;
+    entry->timestamp = global_timestamp++;
     
-    /* get the entry index by invoking find_entry_index_in_set() 
-    for copying to the cache */
-
-    /* add this main memory access cycle to global access cycle */
-
-   /* Fetch the data from the main memory and copy them to the cache */
-
-   /* Return the accessed data with a suitable type (b, h, or w)*/
-
-   // return -1 for unknown type
-
-
-    return 0;
+    int memory_index = ((int)addr / WORD_SIZE_BYTE);
+    int offset = ((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE);
+    
+    // 메모리에서 데이터를 읽어와 캐시에 복사
+    for (int i = 0; i < DEFAULT_CACHE_BLOCK_SIZE_BYTE; i++) {
+        entry->data[i] = (char)((memory_array[memory_index] >> (i * 8)) & 0xFF);
+    }
+    
+    switch (type) {
+        case 'b': // 바이트
+            return entry->data[offset];
+        case 'h': // 하프워드
+            return ((entry->data[offset + 1] << 8) | entry->data[offset]);
+        case 'w': // 워드
+            return ((entry->data[offset + 3] << 24) | (entry->data[offset + 2] << 16) |
+                    (entry->data[offset + 1] << 8) | entry->data[offset]);
+        default:
+            return -1; // 알 수 없는 타입
+    }
 }

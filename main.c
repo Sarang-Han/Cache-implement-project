@@ -24,16 +24,36 @@ int global_timestamp = 0;   // # of data access trials
 
 int retrieve_data(void *addr, char data_type) {
     int value_returned = -1; /* accessed data */
+    cache_entry_t cache_array[CACHE_SET_SIZE][DEFAULT_CACHE_ASSOC];
 
-    /* Check data by invoking check_cache_data_hit() */
+    int result = check_cache_data_hit(addr, data_type); // 캐시에 데이터 있는지 확인
 
-   /* In case of the cache miss event, retrieve data from the main memory
-      by invoking access_memory() */
+    if (result == -1) {
+        // 캐시 미스일 경우 메모리에서 데이터 가져오기
+        value_returned = access_memory(addr, data_type);
+    } else {
+        // 캐시 히트일 경우 해당 데이터 반환
+        switch (data_type) {
+            case 'b':
+                value_returned = cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE)];
+                break;
+            case 'h':
+                value_returned = ((cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE) + 1] << 8) |
+                                  cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE)]);
+                break;
+            case 'w':
+                value_returned = ((cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE) + 3] << 24) |
+                                  (cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE) + 2] << 16) |
+                                  (cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE) + 1] << 8) |
+                                  cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE)]);
+                break;
+            default:
+                break;
+        }
+    }
 
-   /* If there is no data neither in cache nor memory, return -1,
-      else return data */
-      
-    return value_returned;    
+    num_bytes++; // 액세스한 바이트 수 증가
+    return value_returned;
 }
 
 int main(void) {
@@ -41,7 +61,10 @@ int main(void) {
     unsigned long int access_addr; /* byte address (located at 1st column) in "access_input.txt" */
     char access_type; /* 'b'(byte), 'h'(halfword), or 'w'(word) (located at 2nd column) in "access_input.txt" */
     int accessed_data; /* This is the data that you want to retrieve first from cache, and then from memory */ 
-    
+    int total_accesses = num_cache_hits + num_cache_misses;
+    float hit_ratio = (total_accesses > 0) ? ((float)num_cache_hits / total_accesses) : 0;
+    float bandwidth = (float)num_bytes / num_access_cycles;
+
     init_memory_content();
     init_cache_content();
     
@@ -62,6 +85,16 @@ int main(void) {
 
     /* print hit ratio and bandwidth for each cache mechanism
     as regards to cache association size */
+    while (fscanf(ifp, "%lu %c", &access_addr, &access_type) != EOF) {
+        int accessed_data = retrieve_data((void *)access_addr, access_type); // 데이터 검색
+
+        fprintf(ofp, "%lu %c %#x\n", access_addr, access_type, accessed_data); // 결과 출력
+    }
+
+    fprintf(ofp, "----------------------------------------------\n");
+    fprintf(ofp, "Hit ratio = %.2f (%d/%d)\n", hit_ratio, num_cache_hits, total_accesses);
+    fprintf(ofp, "Bandwidth = %.2f (%d/%d)\n", bandwidth, num_bytes, num_access_cycles);
+
 
     fclose(ifp);
     fclose(ofp);
