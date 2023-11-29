@@ -21,7 +21,7 @@
 #define DEFAULT_MEMORY_SIZE_WORD         128    
 #define CACHE_ACCESS_CYCLE               1
 #define MEMORY_ACCESS_CYCLE              100
-#define CACHE_SET_SIZE                   ((DEFAULT_CACHE_SIZE_BYTE)/(DEFAULT_CACHE_BLOCK_SIZE_BYTE*DEFAULT_CACHE_ASSOC))
+#define CACHE_SET_SIZE                   ((DEFAULT_CACHE_SIZE_BYTE)/(DEFAULT_CACHE_BLOCK_SIZE_BYTE*DEFAULT_CACHE_ASSOC)) // set size=[direct]32/(8*1)=4, [2-way]32/(8*2)=2, [full] 32/(8*4)=1
 
 /* Function Prototypes */
 void init_memory_content();
@@ -33,11 +33,11 @@ int access_memory(void *addr, char type);
 
 /* Cache Entry Structure */
 typedef struct cache_entry {
-    int valid;
-    int tag;
-    int timestamp;
-    char data[DEFAULT_CACHE_BLOCK_SIZE_BYTE];
-} cache_entry_t;
+    int valid;  // present = 1, not present = 0
+    int tag;    // tag of the stored data
+    int timestamp; // most recent access time
+    char data[DEFAULT_CACHE_BLOCK_SIZE_BYTE]; // data from memory[address]
+} cache_entry_t; // define type as cache_entry_t
 
 
 #endif

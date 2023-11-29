@@ -12,25 +12,27 @@
 #include <stdio.h>
 #include "cache_impl.h"
 
-int num_cache_hits = 0;
-int num_cache_misses = 0;
+/* hit ratio = (num_cache_hits / (num_cache_hits + num_cache_misses)) */
+int num_cache_hits = 0;     // # of hits
+int num_cache_misses = 0;   // # of misses
 
-int num_bytes = 0;
-int num_access_cycles = 0;
+/* bandwidth = (num_bytes / num_acess_cycles) */
+int num_bytes = 0;          // # of accessed bytes
+int num_access_cycles = 0;  // # of clock cycles
 
-int global_timestamp = 0;
+int global_timestamp = 0;   // # of data access trials
 
 int retrieve_data(void *addr, char data_type) {
     int value_returned = -1; /* accessed data */
 
-    /* Invoke check_cache_data_hit() */
+    /* Check data by invoking check_cache_data_hit() */
 
+   /* In case of the cache miss event, retrieve data from the main memory
+      by invoking access_memory() */
 
-    
-    /* In case of the cache miss event, access the main memory by invoking access_memory() */
-
-
-
+   /* If there is no data neither in cache nor memory, return -1,
+      else return data */
+      
     return value_returned;    
 }
 
@@ -55,15 +57,16 @@ int main(void) {
         return -1;
     }
     
-    /* Fill out here by invoking retrieve_data() */
+    /* read each line and get the data in given (address, type)
+    by invoking retrieve_data() */
 
-
-
-
+    /* print hit ratio and bandwidth for each cache mechanism
+    as regards to cache association size */
 
     fclose(ifp);
     fclose(ofp);
     
+    /* print the final cache entries by invoking print_cache_entries() */
     print_cache_entries();
     return 0;
 }

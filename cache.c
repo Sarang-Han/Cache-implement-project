@@ -22,9 +22,12 @@ extern int num_access_cycles;
 
 extern int global_timestamp;
 
+/* new variables used in this file */
 cache_entry_t cache_array[CACHE_SET_SIZE][DEFAULT_CACHE_ASSOC];
+// data in cache with size (# of sets X # of associations),
+// 4X1 for direct, 2X2 for 2-way, 1X4 for fully
 int memory_array[DEFAULT_MEMORY_SIZE_WORD];
-
+// data in memory with size of 128 words
 
 /* DO NOT CHANGE THE FOLLOWING FUNCTION */
 void init_memory_content() {
@@ -34,13 +37,11 @@ void init_memory_content() {
     
     for (index=0; index < DEFAULT_MEMORY_SIZE_WORD; index++) {
         memory_array[index] = (sample_upward[i] << 24) | (sample_upward[j] << 16) | (sample_downward[i] << 8) | (sample_downward[j]);
-        if (++i >= 16)
-            i = 0;
-        if (++j >= 16)
-            j = 0;
+        if (++i >= 16) i = 0; // cycle
+        if (++j >= 16)j = 0; // cycle
         
-        if (i == 0 && j == i+gap)
-            j = i + (++gap);
+        if (i == 0 && j == i+gap)   //difference of i and j==gap
+            j = i + (++gap);        // increases 1 gap and new j for each cycle
             
         printf("mem[%d] = %#x\n", index, memory_array[index]);
     }
@@ -53,9 +54,9 @@ void init_cache_content() {
     for (i=0; i<CACHE_SET_SIZE; i++) {
         for (j=0; j < DEFAULT_CACHE_ASSOC; j++) {
             cache_entry_t *pEntry = &cache_array[i][j];
-            pEntry->valid = 0;
-            pEntry->tag = -1;
-            pEntry->timestamp = 0;
+            pEntry->valid = 0; // invalid
+            pEntry->tag = -1; // no tag
+            pEntry->timestamp = 0; // no access trial
         }
     }
 }
@@ -65,11 +66,15 @@ void init_cache_content() {
 void print_cache_entries() {
     int i, j, k;
     
-    for (i=0; i<CACHE_SET_SIZE; i++) {
+    printf("ENTRY >>\n");
+    // for each set
+    for (i=0; i<CACHE_SET_SIZE; i++) { 
         printf("[Set %d] ", i);
+        // for each entry in a set
         for (j=0; j <DEFAULT_CACHE_ASSOC; j++) {
             cache_entry_t *pEntry = &cache_array[i][j];
             printf("Valid: %d Tag: %#x Time: %d Data: ", pEntry->valid, pEntry->tag, pEntry->timestamp);
+            // for each block in a entry
             for (k=0; k<DEFAULT_CACHE_BLOCK_SIZE_BYTE; k++) {
                 printf("%#x(%d) ", pEntry->data[k], k);
             }
@@ -79,47 +84,46 @@ void print_cache_entries() {
     }
 }
 
+/* This function is to return the data in cache */
 int check_cache_data_hit(void *addr, char type) {
 
-    /* Fill out here */
+    /* add this cache access cycle to global access cycle */
+   /* check all entries in a set */
+   /* if there is no data in cache, data is missed and return -1*/
+   // return -1 for missing
 
-
-
-
-
-
-
-    /* Return the data */
-    return 0;    
+    return -1;    
 }
 
+/* This function is to find the entry index in set for copying to cache */
 int find_entry_index_in_set(int cache_index) {
     int entry_index;
 
     /* Check if there exists any empty cache space by checking 'valid' */
 
+   /* If the set has only 1 entry, return index 0 */
 
-    /* Otherwise, search over all entries to find the least recently used entry by checking 'timestamp' */
+   /* Otherwise, search over all entries
+      to find the least recently used entry by checking 'timestamp' */
 
-
+   /* return the cache index for copying from memory */
 
     return entry_index; 
 }
 
+/* This function is to return the data in main memory */
 int access_memory(void *addr, char type) {
     
-    /* Fetch the data from the main memory and copy them to the cache */
-    /* void *addr: addr is byte address, whereas your main memory address is word address due to 'int memory_array[]' */
+    /* get the entry index by invoking find_entry_index_in_set() 
+    for copying to the cache */
 
-    /* You need to invoke find_entry_index_in_set() for copying to the cache */
+    /* add this main memory access cycle to global access cycle */
 
+   /* Fetch the data from the main memory and copy them to the cache */
 
+   /* Return the accessed data with a suitable type (b, h, or w)*/
 
-
-    /* Return the accessed data with a suitable type */    
-
-
-
+   // return -1 for unknown type
 
 
     return 0;
