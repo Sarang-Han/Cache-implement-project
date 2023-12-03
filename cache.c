@@ -129,20 +129,6 @@ int find_entry_index_in_set(int cache_index) {
         return 0; // 캐시가 가득 차있으면 첫 번째 인덱스 반환
     }
 
-    // 2-way, 4-way 캐시의 경우
-    for (int i = 0; i < DEFAULT_CACHE_ASSOC; i++) {
-        cache_entry_t *entry = &cache_array[set_index][i];
-        if (!entry->valid) {
-            empty_entry_index = i; // 비어있는 엔트리가 있으면 해당 인덱스 저장
-            break;
-        }
-        // LRU(Least Recently Used) 찾기
-        if (entry->timestamp < lru_timestamp) {
-            lru_index = i;
-            lru_timestamp = entry->timestamp;
-        }
-    }
-
     if (empty_entry_index != -1) {
         return empty_entry_index; // 비어있는 엔트리가 있으면 반환
     } else {
@@ -186,12 +172,13 @@ int access_memory(void *addr, char type) {
         case 'b': // 바이트
             return entry->data[word_index];
         case 'h': // 하프워드
-            return ((entry->data[word_index + 1] << 8) | entry->data[word_index]);
+            return ((entry->data[word_index + 1] << 8) |
+            (entry->data[word_index] & 0xFF));
         case 'w': // 워드
             return ((entry->data[word_index + 3] << 24) |
-                    (entry->data[word_index + 2] << 16) |
-                    (entry->data[word_index + 1] << 8) |
-                    entry->data[word_index]);
+                (entry->data[word_index + 2] << 16) |
+                (entry->data[word_index + 1] << 8) |
+                (entry->data[word_index] & 0xFF));
         default:
             return -1; // 알 수 없는 타입
     }
