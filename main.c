@@ -12,30 +12,28 @@
 #include <stdio.h>
 #include "cache_impl.h"
 
-/* hit ratio = (num_cache_hits / (num_cache_hits + num_cache_misses)) */
-int num_cache_hits = 0;     // # of hits
-int num_cache_misses = 0;   // # of misses
+// Variables to track cache and memory access metrics
+int num_cache_hits = 0;     // Number of cache hits
+int num_cache_misses = 0;   // Number of cache misses
+int num_bytes = 0;          // Number of accessed bytes
+int num_access_cycles = 0;  // Number of clock cycles
+int global_timestamp = 0;   // Number of data access trials
+cache_entry_t cache_array[CACHE_SET_SIZE][DEFAULT_CACHE_ASSOC]; // Cache array
 
-/* bandwidth = (num_bytes / num_acess_cycles) */
-int num_bytes = 0;          // # of accessed bytes
-int num_access_cycles = 0;  // # of clock cycles
-
-int global_timestamp = 0;   // # of data access trials
-cache_entry_t cache_array[CACHE_SET_SIZE][DEFAULT_CACHE_ASSOC];
-
+// Function to retrieve data from cache or memory based on the address and data type
 int retrieve_data(void *addr, char data_type) {
-    int value_returned = -1; /* accessed data */
+    int value_returned = -1; // Accessed data
 
-    int result = check_cache_data_hit(addr, data_type); // 캐시에 데이터 있는지 확인
+    int result = check_cache_data_hit(addr, data_type); // Check if data exists in cache
 
     if (result == -1) {
-        // 캐시 미스일 경우 메모리에서 데이터 가져오기
+        // Cache miss: Retrieve data from memory
         value_returned = access_memory(addr, data_type);
     } else {
-        // 캐시 히트일 경우 해당 데이터 반환
+        // Cache hit: Return the data from the cache
         cache_entry_t *cache_entry = &cache_array[result / DEFAULT_CACHE_ASSOC][result % DEFAULT_CACHE_ASSOC];
 
-        // 업데이트된 방식에 따라 데이터 타입에 맞게 처리
+        // Update based on the data type
         switch (data_type) {
             case 'b':
                 value_returned = cache_entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE];
@@ -55,20 +53,22 @@ int retrieve_data(void *addr, char data_type) {
         }
     }
 
-    num_bytes += (data_type == 'b') ? 1 : (data_type == 'h') ? 2 : 4; // 액세스한 바이트 수 증가
+    // Increase the number of accessed bytes
+    num_bytes += (data_type == 'b') ? 1 : (data_type == 'h') ? 2 : 4;
     return value_returned;
 }
 
-
+// Main function
 int main(void) {
     FILE *ifp = NULL, *ofp = NULL;
-    unsigned long int access_addr; /* byte address (located at 1st column) in "access_input.txt" */
-    char access_type; /* 'b'(byte), 'h'(halfword), or 'w'(word) (located at 2nd column) in "access_input.txt" */
-    int accessed_data; /* This is the data that you want to retrieve first from cache, and then from memory */ 
-
+    unsigned long int access_addr; // Byte address from "access_input.txt"
+    char access_type; // 'b'(byte), 'h'(halfword), or 'w'(word) from "access_input.txt"
+    
+    // Initialize memory and cache content
     init_memory_content();
     init_cache_content();
     
+    // File handling
     ifp = fopen("access_input.txt", "r");
     if (ifp == NULL) {
         printf("Can't open input file\n");
@@ -81,44 +81,43 @@ int main(void) {
         return -1;
     }
     
-    /* read each line and get the data in given (address, type)
-    by invoking retrieve_data() */
-
-    /* print hit ratio and bandwidth for each cache mechanism
-    as regards to cache association size */
+    /* Read each line and retrieve data based on the (address, type) pair */
     fprintf(ofp, "[Access Data] \n");
     while (fscanf(ifp, "%lu %c", &access_addr, &access_type) != EOF) {
-        int accessed_data = retrieve_data((void *)access_addr, access_type); // 데이터 검색
+        int accessed_data = retrieve_data((void *)access_addr, access_type); // Search for data
 
-        fprintf(ofp, "%lu %c %#x\n", access_addr, access_type, accessed_data); // 결과 출력
+        fprintf(ofp, "%lu %c %#x\n", access_addr, access_type, accessed_data); // Print the result
     }
 
+    // Calculate hit ratio and bandwidth
     float hit_ratio = (float)num_cache_hits / (num_cache_hits + num_cache_misses);
     float bandwidth = (float)num_bytes / num_access_cycles;
     
     fprintf(ofp, "----------------------------------------------\n");
+    // Print cache performance based on association size
     switch (DEFAULT_CACHE_ASSOC) {
-    case 1:
-        fprintf(ofp, "[Direct mapped cache performance]\n");
-        break;
-    case 2:
-        fprintf(ofp, "[2-way set associative cache performance]\n");
-        break;
-    case 4:
-        fprintf(ofp, "[Fully associative cache performance]\n");
-        break;
-    default:
-        fprintf(ofp, "[Unknown cache performance]\n");
-        break;
+        case 1:
+            fprintf(ofp, "[Direct mapped cache performance]\n");
+            break;
+        case 2:
+            fprintf(ofp, "[2-way set associative cache performance]\n");
+            break;
+        case 4:
+            fprintf(ofp, "[Fully associative cache performance]\n");
+            break;
+        default:
+            fprintf(ofp, "[Unknown cache performance]\n");
+            break;
     }
 
+    // Output hit ratio and bandwidth
     fprintf(ofp, "Hit ratio = %.2f (%d/%d)\n", hit_ratio, num_cache_hits, num_cache_hits + num_cache_misses);
     fprintf(ofp, "Bandwidth = %.2f (%d/%d)\n", bandwidth, num_bytes, num_access_cycles);
 
     fclose(ifp);
     fclose(ofp);
 
-    /* print the final cache entries by invoking print_cache_entries() */
+    // Print final cache entries
     print_cache_entries();
     return 0;
 }
