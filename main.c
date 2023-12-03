@@ -35,15 +35,20 @@ int retrieve_data(void *addr, char data_type) {
         // 캐시 히트일 경우 해당 데이터 반환
         cache_entry_t *cache_entry = &cache_array[result / DEFAULT_CACHE_ASSOC][result % DEFAULT_CACHE_ASSOC];
 
+        // 업데이트된 방식에 따라 데이터 타입에 맞게 처리
         switch (data_type) {
             case 'b':
-                value_returned = cache_entry->data[0];
+                value_returned = cache_entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE];
                 break;
             case 'h':
-                value_returned = (cache_entry->data[1] << 8) | cache_entry->data[0];
+                value_returned = (cache_entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 1] << 8) |
+                                 cache_entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE];
                 break;
             case 'w':
-                value_returned = (cache_entry->data[3] << 24) | (cache_entry->data[2] << 16) | (cache_entry->data[1] << 8) | cache_entry->data[0];
+                value_returned = (cache_entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 3] << 24) |
+                                 (cache_entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 2] << 16) |
+                                 (cache_entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 1] << 8) |
+                                  cache_entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE];
                 break;
             default:
                 break;
@@ -53,6 +58,7 @@ int retrieve_data(void *addr, char data_type) {
     num_bytes += (data_type == 'b') ? 1 : (data_type == 'h') ? 2 : 4; // 액세스한 바이트 수 증가
     return value_returned;
 }
+
 
 int main(void) {
     FILE *ifp = NULL, *ofp = NULL;
