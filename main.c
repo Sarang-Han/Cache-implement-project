@@ -86,6 +86,7 @@ int main(void) {
 
     /* print hit ratio and bandwidth for each cache mechanism
     as regards to cache association size */
+    fprintf(ofp, "[Access Data] \n");
     while (fscanf(ifp, "%lu %c", &access_addr, &access_type) != EOF) {
         int accessed_data = retrieve_data((void *)access_addr, access_type); // 데이터 검색
 
@@ -96,6 +97,21 @@ int main(void) {
     float bandwidth = (float)num_bytes / num_access_cycles;
     
     fprintf(ofp, "----------------------------------------------\n");
+    switch (DEFAULT_CACHE_ASSOC) {
+    case 1:
+        fprintf(ofp, "[Direct mapped cache performance]\n");
+        break;
+    case 2:
+        fprintf(ofp, "[2-way set associative cache performance]\n");
+        break;
+    case 4:
+        fprintf(ofp, "[Fully associative cache performance]\n");
+        break;
+    default:
+        fprintf(ofp, "[Unknown cache performance]\n");
+        break;
+    }
+
     fprintf(ofp, "Hit ratio = %.2f (%d/%d)\n", hit_ratio, num_cache_hits, num_cache_hits + num_cache_misses);
     fprintf(ofp, "Bandwidth = %.2f (%d/%d)\n", bandwidth, num_bytes, num_access_cycles);
 

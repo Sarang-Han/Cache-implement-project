@@ -93,7 +93,7 @@ int check_cache_data_hit(void *addr, char type) {
     int tag = block_addr / CACHE_SET_SIZE;
     int byte_offset = ((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE; // byte offset 계산
 
-    printf("check_cache_data_hit: block_addr = %d, byte_offset = %d, cache_index = %d, tag = %d\n", block_addr, byte_offset, cache_index, tag);
+    printf("Cache>> block_addr = %d, byte_offset = %d, cache_index = %d, tag = %d\n", block_addr, byte_offset, cache_index, tag);
 
     for (int i = 0; i < DEFAULT_CACHE_ASSOC; i++) {
         cache_entry_t *entry = &cache_array[cache_index][i];
@@ -101,13 +101,13 @@ int check_cache_data_hit(void *addr, char type) {
             num_cache_hits++; // 캐시 히트
             entry->timestamp = global_timestamp++; // 타임스탬프 업데이트
 
-            printf("check_cache_data_hit: cache hit!\n");
+            printf("cache hit!\n");
             return cache_index * DEFAULT_CACHE_ASSOC + i; // 데이터의 인덱스 리턴
         }
     }
     // 데이터가 캐시에 없음 (캐시 미스)
     num_cache_misses++;
-    printf("check_cache_data_hit: cache miss!\n");
+    printf("cache miss!\n");
     return -1;
 }
 
@@ -143,8 +143,6 @@ int access_memory(void *addr, char type) {
     int memory_block = ((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE); // memory block 계산
     int word_index = ((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE; // word index 계산
 
-    printf("access_memory: memory_block = %d\n", memory_block);
-
     int cache_set_index = memory_block % CACHE_SET_SIZE; // cache set index 계산
     int cache_entry_index = find_entry_index_in_set(cache_set_index); // 캐시에 저장할 인덱스 찾기
 
@@ -161,13 +159,13 @@ int access_memory(void *addr, char type) {
         entry->data[i] = (char)((memory_array[memory_index + i / WORD_SIZE_BYTE] >> ((i % WORD_SIZE_BYTE) * 8)) & 0xFF);
     }
 
-    printf("access_memory: data in cache after copy:\n");
+    printf("access_memory: data in cache after copy:\n"); //디버깅용 데이터 출력
     for (int i = 0; i < DEFAULT_CACHE_BLOCK_SIZE_BYTE; i++) {
         printf("(%d)%#x ", i, entry->data[i]);
     }
     printf("\n");
 
-    // 반환할 데이터를 캐시에서 찾아서 올바르게 반환
+    // 반환할 데이터를 캐시에서 찾아서 반환
     switch (type) {
         case 'b': // 바이트
             return entry->data[word_index];
