@@ -21,10 +21,10 @@ int num_bytes = 0;          // # of accessed bytes
 int num_access_cycles = 0;  // # of clock cycles
 
 int global_timestamp = 0;   // # of data access trials
+cache_entry_t cache_array[CACHE_SET_SIZE][DEFAULT_CACHE_ASSOC];
 
 int retrieve_data(void *addr, char data_type) {
     int value_returned = -1; /* accessed data */
-    cache_entry_t cache_array[CACHE_SET_SIZE][DEFAULT_CACHE_ASSOC];
 
     int result = check_cache_data_hit(addr, data_type); // 캐시에 데이터 있는지 확인
 
@@ -33,36 +33,34 @@ int retrieve_data(void *addr, char data_type) {
         value_returned = access_memory(addr, data_type);
     } else {
         // 캐시 히트일 경우 해당 데이터 반환
+        cache_entry_t cache_entry = cache_array[result / CACHE_SET_SIZE][result % CACHE_SET_SIZE];
+
         switch (data_type) {
             case 'b':
-                value_returned = cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE)];
+                value_returned = cache_entry.data[0];
                 break;
             case 'h':
-                value_returned = ((cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE) + 1] << 8) |
-                                  cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE)]);
+                value_returned = (cache_entry.data[1] << 8) | cache_entry.data[0];
                 break;
             case 'w':
-                value_returned = ((cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE) + 3] << 24) |
-                                  (cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE) + 2] << 16) |
-                                  (cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE) + 1] << 8) |
-                                  cache_array[((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE][result].data[((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE)]);
+                value_returned = (cache_entry.data[3] << 24) | (cache_entry.data[2] << 16) | (cache_entry.data[1] << 8) | cache_entry.data[0];
                 break;
             default:
                 break;
         }
     }
 
-    num_bytes++; // 액세스한 바이트 수 증가
+    num_bytes += (data_type == 'b') ? 1 : (data_type == 'h') ? 2 : 4; // 액세스한 바이트 수 증가
     return value_returned;
 }
-
 int main(void) {
     FILE *ifp = NULL, *ofp = NULL;
     unsigned long int access_addr; /* byte address (located at 1st column) in "access_input.txt" */
     char access_type; /* 'b'(byte), 'h'(halfword), or 'w'(word) (located at 2nd column) in "access_input.txt" */
     int accessed_data; /* This is the data that you want to retrieve first from cache, and then from memory */ 
+    
     int total_accesses = num_cache_hits + num_cache_misses;
-    float hit_ratio = (total_accesses > 0) ? ((float)num_cache_hits / total_accesses) : 0;
+    float hit_ratio = ((float)num_cache_hits / total_accesses);
     float bandwidth = (float)num_bytes / num_access_cycles;
 
     init_memory_content();
