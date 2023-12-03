@@ -96,6 +96,15 @@ int check_cache_data_hit(void *addr, char type) {
         if (entry->valid && entry->tag == tag) {
             num_cache_hits++; // 캐시 히트
             entry->timestamp = global_timestamp++; // 타임스탬프 업데이트
+
+            // 캐시 히트 시 해당 데이터를 사용할 위치로 옮기기 위해 LRU 정책을 적용합니다.
+            for (int j = 0; j < DEFAULT_CACHE_ASSOC; j++) {
+                if (cache_array[set_index][j].timestamp < entry->timestamp) {
+                    cache_array[set_index][j].timestamp++;
+                }
+            }
+            entry->timestamp = 0; // 가장 최근에 사용된 것으로 표시
+
             return 1; // 데이터를 찾았으므로 리턴
         }
     }
@@ -104,6 +113,7 @@ int check_cache_data_hit(void *addr, char type) {
     return -1;
 }
 
+
 int find_entry_index_in_set(int cache_index) {
     /* 캐시 세트 내에서 새 데이터를 저장할 인덱스를 찾아야 해요. */
     int set_index = cache_index % CACHE_SET_SIZE;
@@ -111,6 +121,16 @@ int find_entry_index_in_set(int cache_index) {
     int lru_index = 0;
     int lru_timestamp = cache_array[set_index][0].timestamp;
 
+    // Direct-mapped 캐시의 경우
+    if (DEFAULT_CACHE_ASSOC == 1) {
+        cache_entry_t *entry = &cache_array[set_index][0];
+        if (!entry->valid) {
+            return 0; // 캐시가 비어있으면 첫 번째 인덱스 반환
+        }
+        return 0; // 캐시가 가득 차있으면 첫 번째 인덱스 반환
+    }
+
+    // 2-way, 4-way 캐시의 경우
     for (int i = 0; i < DEFAULT_CACHE_ASSOC; i++) {
         cache_entry_t *entry = &cache_array[set_index][i];
         if (!entry->valid) {
@@ -127,9 +147,11 @@ int find_entry_index_in_set(int cache_index) {
     if (empty_entry_index != -1) {
         return empty_entry_index; // 비어있는 엔트리가 있으면 반환
     } else {
-        return lru_index; // 아니면 LRU 인덱스 반환
+        return lru_index; // LRU 인덱스 반환
     }
 }
+
+
 
 int access_memory(void *addr, char type) {
     /* 메모리에서 데이터를 읽어와서 캐시에 저장해야 해요. */
@@ -143,24 +165,28 @@ int access_memory(void *addr, char type) {
     entry->valid = 1;
     entry->tag = tag;
     entry->timestamp = global_timestamp++;
-    
+
     int memory_index = ((int)addr / WORD_SIZE_BYTE);
-    int offset = ((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE);
-    
+
     // 메모리에서 데이터를 읽어와 캐시에 복사
     for (int i = 0; i < DEFAULT_CACHE_BLOCK_SIZE_BYTE; i++) {
         entry->data[i] = (char)((memory_array[memory_index] >> (i * 8)) & 0xFF);
     }
-    
+
+    // 반환할 데이터를 캐시에서 찾아서 올바르게 반환
     switch (type) {
         case 'b': // 바이트
-            return entry->data[offset];
+            return entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE];
         case 'h': // 하프워드
-            return ((entry->data[offset + 1] << 8) | entry->data[offset]);
+            return ((entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 1] << 8) |
+                    entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE]);
         case 'w': // 워드
-            return ((entry->data[offset + 3] << 24) | (entry->data[offset + 2] << 16) |
-                    (entry->data[offset + 1] << 8) | entry->data[offset]);
+            return ((entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 3] << 24) |
+                    (entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 2] << 16) |
+                    (entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 1] << 8) |
+                    entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE]);
         default:
             return -1; // 알 수 없는 타입
     }
 }
+
