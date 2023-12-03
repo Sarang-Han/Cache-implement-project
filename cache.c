@@ -89,11 +89,10 @@ int check_cache_data_hit(void *addr, char type) {
     num_access_cycles += CACHE_ACCESS_CYCLE; // 캐시 액세스 사이클 추가
 
     int block_addr = ((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE); // block address 계산
-    int byte_offset = ((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE; // byte offset 계산
     int cache_index = block_addr % CACHE_SET_SIZE;
     int tag = block_addr / CACHE_SET_SIZE;
 
-    printf("check_cache_data_hit: block_addr = %d, byte_offset = %d, cache_index = %d, tag = %d\n", block_addr, byte_offset, cache_index, tag);
+    printf("check_cache_data_hit: block_addr = %d, cache_index = %d, tag = %d\n", block_addr, cache_index, tag);
 
     for (int i = 0; i < DEFAULT_CACHE_ASSOC; i++) {
         cache_entry_t *entry = &cache_array[cache_index][i];
@@ -101,16 +100,8 @@ int check_cache_data_hit(void *addr, char type) {
             num_cache_hits++; // 캐시 히트
             entry->timestamp = global_timestamp++; // 타임스탬프 업데이트
 
-            // 캐시 히트 시 해당 데이터를 사용할 위치로 옮기기 위해 LRU 정책을 적용합니다.
-            for (int j = 0; j < DEFAULT_CACHE_ASSOC; j++) {
-                if (cache_array[cache_index][j].timestamp < entry->timestamp) {
-                    cache_array[cache_index][j].timestamp++;
-                }
-            }
-            entry->timestamp = 0; // 가장 최근에 사용된 것으로 표시
-
             printf("check_cache_data_hit: cache hit!\n");
-            return 1; // 데이터를 찾았으므로 리턴
+            return cache_index * DEFAULT_CACHE_ASSOC + i; // 데이터의 인덱스 리턴
         }
     }
     // 데이터가 캐시에 없음 (캐시 미스)
@@ -118,7 +109,6 @@ int check_cache_data_hit(void *addr, char type) {
     printf("check_cache_data_hit: cache miss!\n");
     return -1;
 }
-
 
 
 int find_entry_index_in_set(int cache_index) {
@@ -160,51 +150,37 @@ int find_entry_index_in_set(int cache_index) {
 
 
 int access_memory(void *addr, char type) {
-    /* 메모리에서 데이터를 읽어와서 캐시에 저장해야 해요. */
-    int set_index = ((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) % CACHE_SET_SIZE;
-    int entry_index = find_entry_index_in_set(set_index);
-
     num_access_cycles += MEMORY_ACCESS_CYCLE; // 메모리 액세스 사이클 추가
 
-    printf("access_memory: set_index = %d, entry_index = %d\n", set_index, entry_index);
+    int memory_index = ((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE) * (DEFAULT_CACHE_BLOCK_SIZE_BYTE / WORD_SIZE_BYTE);
 
-    cache_entry_t *entry = &cache_array[set_index][entry_index];
-    int tag = ((int)addr / DEFAULT_CACHE_SIZE_BYTE);
-    entry->valid = 1;
-    entry->tag = tag;
-    entry->timestamp = global_timestamp++;
-
-    int memory_block = ((int)addr / DEFAULT_CACHE_BLOCK_SIZE_BYTE);
-    int word_offset = ((int)addr % DEFAULT_CACHE_BLOCK_SIZE_BYTE) / WORD_SIZE_BYTE;
-    int memory_index = memory_block * DEFAULT_CACHE_BLOCK_SIZE_BYTE / WORD_SIZE_BYTE + word_offset;
-
-    printf("access_memory: tag = %d, memory_index = %d\n", tag, memory_index);
+    printf("access_memory: memory_index = %d\n", memory_index);
 
     // 메모리에서 데이터를 읽어와 캐시에 복사
     for (int i = 0; i < DEFAULT_CACHE_BLOCK_SIZE_BYTE; i++) {
+        cache_entry_t *entry = &cache_array[i / WORD_SIZE_BYTE][i % WORD_SIZE_BYTE];
         entry->data[i] = (char)((memory_array[memory_index + i / WORD_SIZE_BYTE] >> ((i % WORD_SIZE_BYTE) * 8)) & 0xFF);
     }
 
     printf("access_memory: data in cache after copy:\n");
     for (int i = 0; i < DEFAULT_CACHE_BLOCK_SIZE_BYTE; i++) {
-        printf("(%d)%#x ", i, entry->data[i]);
+        printf("(%d)%#x ", i, cache_array[i / WORD_SIZE_BYTE][i % WORD_SIZE_BYTE].data[i]);
     }
     printf("\n");
 
     // 반환할 데이터를 캐시에서 찾아서 올바르게 반환
     switch (type) {
         case 'b': // 바이트
-            return entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE];
+            return cache_array[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE / WORD_SIZE_BYTE][((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE % WORD_SIZE_BYTE].data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE];
         case 'h': // 하프워드
-            return ((entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 1] << 8) |
-                    entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE]);
+            return ((cache_array[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE / WORD_SIZE_BYTE][((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE % WORD_SIZE_BYTE].data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 1] << 8) |
+                    cache_array[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE / WORD_SIZE_BYTE][((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE % WORD_SIZE_BYTE].data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE]);
         case 'w': // 워드
-            return ((entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 3] << 24) |
-                    (entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 2] << 16) |
-                    (entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 1] << 8) |
-                    entry->data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE]);
+            return ((cache_array[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE / WORD_SIZE_BYTE][((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE % WORD_SIZE_BYTE].data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 3] << 24) |
+                    (cache_array[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE / WORD_SIZE_BYTE][((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE % WORD_SIZE_BYTE].data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 2] << 16) |
+                    (cache_array[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE / WORD_SIZE_BYTE][((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE % WORD_SIZE_BYTE].data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE + 1] << 8) |
+                    cache_array[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE / WORD_SIZE_BYTE][((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE % WORD_SIZE_BYTE].data[((int)addr) % DEFAULT_CACHE_BLOCK_SIZE_BYTE]);
         default:
             return -1; // 알 수 없는 타입
     }
-
 }
